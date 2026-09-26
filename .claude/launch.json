@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kyc-sentinel",
+      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeArgs": ["app.api:app", "--port", "8000"],
+      "port": 8000
+    }
+  ]
+}

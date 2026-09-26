@@ -1,0 +1,581 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>KYC Sentinel</title>
+<style>
+  body { font-family: -apple-system, Arial, sans-serif; margin: 24px; color: #1a1a1a; background: #fafafa; }
+  h1 { font-size: 20px; margin-bottom: 16px; }
+  #error { background: #fdecea; color: #611a15; border: 1px solid #f5c2c0; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
+  #receipts { font-size: 13px; color: #444; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+  #dial-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+  #dial-row label { font-weight: 600; font-size: 13px; }
+  #dial { flex: 1; }
+  #dial-value { font-weight: 600; width: 3em; text-align: right; }
+  #counts { display: flex; gap: 10px; margin-bottom: 16px; }
+  .chip { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .chip[data-status="CLEAR"] { background: #2e7d32; color: #fff; }
+  .chip[data-status="REVIEW"] { background: #f9a825; color: #1a1a1a; }
+  .chip[data-status="FLAGGED"] { background: #c62828; color: #fff; }
+  .chip[data-status="NO_COVERAGE"] { background: #757575; color: #fff; }
+  #client-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+  #client-table th, #client-table td { text-align: left; padding: 8px 14px; border-bottom: 1px solid #eee; font-size: 13px; }
+  #client-table tbody tr { cursor: pointer; }
+  #client-table tbody tr:hover { background: #f5f5f5; }
+  .muted { color: #777; font-size: 12px; }
+  #drawer { position: fixed; top: 0; right: 0; width: 480px; height: 100vh; overflow-y: auto; background: #fff; border-left: 1px solid #ddd; box-shadow: -2px 0 10px rgba(0,0,0,0.12); box-sizing: border-box; padding: 20px; }
+  #drawer[hidden] { display: none; }
+  #drawer-close { position: absolute; top: 14px; right: 14px; border: none; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: #444; }
+  #drawer-title { margin: 0 32px 6px 0; font-size: 18px; }
+  #drawer-meta { color: #666; font-size: 12px; margin-bottom: 10px; }
+  #drawer-status { margin-bottom: 10px; }
+  #drawer-reasons { margin: 0 0 14px; padding-left: 18px; font-size: 13px; color: #444; }
+  #drawer-articles { list-style: none; margin: 0; padding: 0; }
+  #drawer-articles li { border: 1px solid #eee; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px; }
+  #drawer-articles li.error { color: #c62828; border-color: #f5c2c0; background: #fdecea; }
+  #drawer-articles a { display: block; font-weight: 600; color: #1a1a1a; text-decoration: none; margin: 6px 0 2px; }
+  #drawer-articles a:hover { text-decoration: underline; }
+  .badge.title-only { display: inline-block; background: #eee; color: #555; font-size: 11px; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+  .chip[data-verdict="HIT"] { background: #c62828; color: #fff; }
+  .chip[data-verdict="REVIEW"] { background: #f9a825; color: #1a1a1a; }
+  .chip[data-verdict="CLEAR"] { background: #2e7d32; color: #fff; }
+  .jev-line { color: #555; font-size: 12px; margin-top: 6px; }
+  .jev-error { color: #c62828; font-size: 12px; margin-top: 4px; }
+  #memo-btn { background: #1a1a1a; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; margin-bottom: 10px; }
+  #memo-btn[hidden] { display: none; }
+  #memo-btn:disabled { opacity: 0.6; cursor: default; }
+  #memo-output { font-size: 13px; color: #333; margin-bottom: 4px; }
+  #memo-output div { margin-bottom: 4px; }
+  #memo-output a { color: #1565c0; }
+  #memo-output.memo-error { color: #c62828; }
+  .memo-cached { display: inline-block; margin-top: 4px; color: #777; font-size: 11px; font-style: italic; }
+  #monitor-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  #monitor-btn { background: #1a1a1a; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+  #monitor-btn:disabled { opacity: 0.6; cursor: default; }
+  #monitor-status { font-size: 12px; color: #555; }
+  #alerts-section { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+  #alerts-section h2 { font-size: 14px; margin: 0 0 8px; }
+  #alerts { list-style: none; margin: 0; padding: 0; }
+  #alerts li { border-bottom: 1px solid #eee; padding: 6px 0; font-size: 13px; }
+  #alerts li:last-child { border-bottom: none; }
+  #alerts a { color: #1565c0; text-decoration: none; margin-left: 6px; }
+  #alerts a:hover { text-decoration: underline; }
+  #alerts .muted { display: block; margin-top: 2px; }
+</style>
+</head>
+<body>
+  <h1>KYC Sentinel</h1>
+  <div id="error" hidden></div>
+  <div id="receipts"></div>
+  <div id="monitor-row">
+    <button id="monitor-btn">Run monitor tick</button>
+    <span id="monitor-status"></span>
+  </div>
+  <div id="alerts-section">
+    <h2>Monitor alerts</h2>
+    <ul id="alerts"></ul>
+  </div>
+  <div id="dial-row">
+    <label for="dial">Autonomy Dial (strictness)</label>
+    <span>lenient</span>
+    <input type="range" id="dial" min="0" max="1" step="0.05" value="0.5">
+    <span>strict</span>
+    <span id="dial-value">0.50</span>
+  </div>
+  <div id="counts">
+    <span class="chip" data-status="CLEAR">CLEAR <b>0</b></span>
+    <span class="chip" data-status="REVIEW">REVIEW <b>0</b></span>
+    <span class="chip" data-status="FLAGGED">FLAGGED <b>0</b></span>
+    <span class="chip" data-status="NO_COVERAGE">NO_COVERAGE <b>0</b></span>
+  </div>
+  <table id="client-table">
+    <thead><tr><th>Client</th><th>Status</th><th>Reason</th><th>Articles</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <aside id="drawer" hidden>
+    <button id="drawer-close" aria-label="Close">×</button>
+    <h2 id="drawer-title"></h2>
+    <div id="drawer-meta"></div>
+    <div id="drawer-status"></div>
+    <ul id="drawer-reasons"></ul>
+    <div id="drawer-actions">
+      <button id="memo-btn" hidden>Generate memo</button>
+      <div id="memo-output"></div>
+    </div>
+    <ul id="drawer-articles"></ul>
+  </aside>
+  <script>
+    let currentStrictness = 0.5;
+    let openClientId = null;
+    let resultsSeq = 0;
+    let drawerSeq = 0;
+    let clientStatusById = {};
+
+    const SEVERITY_LABELS = [
+      "Rumor or unverified allegation",
+      "Formal investigation, raid, or lawsuit",
+      "Criminally charged or indicted",
+      "Convicted, sanctioned, or penalized",
+    ];
+
+    function debounce(fn, ms) {
+      let timer = null;
+      return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), ms);
+      };
+    }
+
+    function showError(msg) {
+      const el = document.getElementById("error");
+      if (msg) {
+        el.textContent = msg;
+        el.hidden = false;
+      } else {
+        el.textContent = "";
+        el.hidden = true;
+      }
+    }
+
+    function renderReceipts(receipts) {
+      const el = document.getElementById("receipts");
+      const tokens = receipts.input_tokens.toLocaleString();
+      const jevCost = receipts.jev_cost_usd.toFixed(4);
+      const elapsed = receipts.elapsed_s.toFixed(1);
+      const llmCost = receipts.llm_equiv_cost_usd.toFixed(4);
+      el.textContent =
+        `Jev calls: ${receipts.jev_calls} | errors: ${receipts.jev_errors} | tokens: ${tokens} | ` +
+        `Jev $: ${jevCost} | elapsed: ${elapsed}s | LLM est $: ${llmCost} (estimate)`;
+    }
+
+    function renderCounts(counts) {
+      const statuses = ["CLEAR", "REVIEW", "FLAGGED", "NO_COVERAGE"];
+      statuses.forEach((status) => {
+        const chip = document.querySelector(`#counts .chip[data-status="${status}"]`);
+        chip.querySelector("b").textContent = counts[status];
+      });
+    }
+
+    function renderTable(clients) {
+      const tbody = document.querySelector("#client-table tbody");
+      tbody.textContent = "";
+      clients.forEach((c) => {
+        const tr = document.createElement("tr");
+        tr.setAttribute("data-client-id", c.id);
+        tr.addEventListener("click", () => {
+          openClientId = c.id;
+          openDrawer(c.id);
+        });
+
+        const nameTd = document.createElement("td");
+        const nameB = document.createElement("b");
+        nameB.textContent = c.name;
+        nameTd.appendChild(nameB);
+
+        const subParts = [];
+        if (c.occupation) subParts.push(c.occupation);
+        const cityCountry = [c.city, c.country].filter(Boolean).join(", ");
+        if (cityCountry) subParts.push(cityCountry);
+        if (subParts.length) {
+          const sub = document.createElement("div");
+          sub.className = "muted";
+          sub.textContent = subParts.join(" · ");
+          nameTd.appendChild(sub);
+        }
+        tr.appendChild(nameTd);
+
+        const statusTd = document.createElement("td");
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.setAttribute("data-status", c.status);
+        chip.textContent = c.status;
+        statusTd.appendChild(chip);
+        tr.appendChild(statusTd);
+
+        const reasonTd = document.createElement("td");
+        reasonTd.textContent = c.reason;
+        tr.appendChild(reasonTd);
+
+        const countTd = document.createElement("td");
+        countTd.textContent = c.article_count;
+        tr.appendChild(countTd);
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadResults(strictness) {
+      const seq = ++resultsSeq;
+      let resp;
+      try {
+        resp = await fetch(`/api/results?strictness=${strictness}`);
+      } catch (err) {
+        if (seq !== resultsSeq) return;
+        showError("request failed: network error");
+        return;
+      }
+      if (seq !== resultsSeq) return;
+
+      let data;
+      try {
+        data = await resp.json();
+      } catch (err) {
+        data = null;
+      }
+
+      if (!resp.ok) {
+        const detail = data && data.detail;
+        showError(detail || `request failed: ${resp.status}`);
+        return;
+      }
+
+      clientStatusById = {};
+      data.clients.forEach((c) => { clientStatusById[c.id] = c.status; });
+
+      renderReceipts(data.receipts);
+      renderCounts(data.counts);
+      renderTable(data.clients);
+      showError(null);
+      if (openClientId) openDrawer(openClientId);
+    }
+
+    function fmtProb(x) {
+      return (x === null || x === undefined) ? "—" : x.toFixed(2);
+    }
+
+    function renderDrawerError(msg) {
+      const list = document.getElementById("drawer-articles");
+      list.textContent = "";
+      const li = document.createElement("li");
+      li.className = "error";
+      li.textContent = msg;
+      list.appendChild(li);
+    }
+
+    function renderDrawer(detail) {
+      const { client, result, articles } = detail;
+
+      document.getElementById("drawer-title").textContent = client.name;
+
+      const metaParts = [];
+      if (client.birth_year) metaParts.push(String(client.birth_year));
+      const cityCountry = [client.city, client.country].filter(Boolean).join(", ");
+      if (cityCountry) metaParts.push(cityCountry);
+      if (client.occupation) metaParts.push(client.occupation);
+      if (client.organization) metaParts.push(client.organization);
+      document.getElementById("drawer-meta").textContent = metaParts.join(" · ");
+
+      const statusEl = document.getElementById("drawer-status");
+      statusEl.textContent = "";
+      const statusChip = document.createElement("span");
+      statusChip.className = "chip";
+      statusChip.setAttribute("data-status", result.status);
+      statusChip.textContent = result.status;
+      statusEl.appendChild(statusChip);
+
+      const reasonsEl = document.getElementById("drawer-reasons");
+      reasonsEl.textContent = "";
+      result.reasons.forEach((r) => {
+        const li = document.createElement("li");
+        li.textContent = r;
+        reasonsEl.appendChild(li);
+      });
+
+      const list = document.getElementById("drawer-articles");
+      list.textContent = "";
+
+      if (articles.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "No articles (NO_COVERAGE)";
+        list.appendChild(li);
+        return;
+      }
+
+      articles.forEach((a) => {
+        const li = document.createElement("li");
+        li.setAttribute("data-article-id", a.id);
+
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.setAttribute("data-verdict", a.verdict);
+        chip.textContent = a.verdict;
+        li.appendChild(chip);
+
+        const link = document.createElement("a");
+        link.href = a.url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = a.title;
+        li.appendChild(link);
+
+        const sub = document.createElement("div");
+        sub.className = "muted";
+        sub.textContent = [a.domain, a.seen_date].filter(Boolean).join(" · ");
+        li.appendChild(sub);
+
+        if (a.title_only) {
+          const badge = document.createElement("span");
+          badge.className = "badge title-only";
+          badge.textContent = "title only";
+          li.appendChild(badge);
+        }
+
+        const reasonDiv = document.createElement("div");
+        reasonDiv.textContent = a.reason;
+        li.appendChild(reasonDiv);
+
+        const d = a.decision;
+        const severityText = (d.severity === null || d.severity === undefined)
+          ? "severity —"
+          : `severity ${d.severity} – ${SEVERITY_LABELS[d.severity]}`;
+        const jevLine = document.createElement("div");
+        jevLine.className = "jev-line";
+        jevLine.textContent =
+          `same_person ${fmtProb(d.same_person)} · is_subject ${fmtProb(d.is_subject)} · ` +
+          `risk ${d.risk_type || "—"} (${fmtProb(d.risk_conf)}) · ${severityText}`;
+        li.appendChild(jevLine);
+
+        if (d.error) {
+          const errDiv = document.createElement("div");
+          errDiv.className = "jev-error";
+          errDiv.textContent = `Jev error: ${d.error}`;
+          li.appendChild(errDiv);
+        }
+
+        list.appendChild(li);
+      });
+    }
+
+    function escapeHtml(s) {
+      return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function linkify(escapedText) {
+      return escapedText.replace(
+        /https?:\/\/[^\s<)\]]+/g,
+        '<a href="$&" target="_blank" rel="noopener noreferrer">$&</a>'
+      );
+    }
+
+    function renderMemoControls(clientId, status) {
+      const btn = document.getElementById("memo-btn");
+      const output = document.getElementById("memo-output");
+
+      output.className = "";
+      output.textContent = "";
+      btn.disabled = false;
+      btn.textContent = "Generate memo";
+
+      if (status === "FLAGGED" || status === "REVIEW") {
+        btn.hidden = false;
+        btn.onclick = () => generateMemo(clientId);
+      } else {
+        btn.hidden = true;
+        btn.onclick = null;
+      }
+    }
+
+    async function generateMemo(clientId) {
+      const btn = document.getElementById("memo-btn");
+      const output = document.getElementById("memo-output");
+
+      btn.disabled = true;
+      btn.textContent = "Generating…";
+
+      let resp;
+      try {
+        resp = await fetch("/api/memo/" + encodeURIComponent(clientId), { method: "POST" });
+      } catch (err) {
+        if (openClientId === clientId) {
+          output.className = "memo-error";
+          output.textContent = `Memo failed: ${err.message}`;
+          btn.disabled = false;
+          btn.textContent = "Generate memo";
+        }
+        return;
+      }
+
+      let data = null;
+      try {
+        data = await resp.json();
+      } catch (err) {
+        data = null;
+      }
+
+      if (openClientId !== clientId) return;
+
+      output.className = "";
+      output.textContent = "";
+
+      if (resp.ok) {
+        (data.memo || "").split("\n").forEach((line) => {
+          const div = document.createElement("div");
+          div.innerHTML = linkify(escapeHtml(line));
+          output.appendChild(div);
+        });
+        if (data.cached) {
+          const span = document.createElement("span");
+          span.className = "memo-cached";
+          span.textContent = "(cached)";
+          output.appendChild(span);
+        }
+      } else {
+        const detail = (data && data.detail) || `request failed: ${resp.status}`;
+        output.className = "memo-error";
+        output.textContent = `Memo failed: ${detail}`;
+      }
+
+      btn.disabled = false;
+      btn.textContent = "Generate memo";
+    }
+
+    async function openDrawer(clientId) {
+      openClientId = clientId;
+      document.getElementById("drawer").hidden = false;
+      renderMemoControls(clientId, clientStatusById[clientId]);
+
+      const seq = ++drawerSeq;
+      let resp;
+      try {
+        resp = await fetch(`/api/client/${encodeURIComponent(clientId)}?strictness=${currentStrictness}`);
+      } catch (err) {
+        if (seq !== drawerSeq || openClientId !== clientId) return;
+        renderDrawerError("request failed: network error");
+        return;
+      }
+
+      if (seq !== drawerSeq || openClientId !== clientId) return;
+
+      let data = null;
+      try {
+        data = await resp.json();
+      } catch (err) {
+        data = null;
+      }
+
+      if (!resp.ok) {
+        const detail = data && data.detail;
+        renderDrawerError(detail || `request failed: ${resp.status}`);
+        return;
+      }
+
+      renderDrawer(data);
+    }
+
+    function closeDrawer() {
+      openClientId = null;
+      document.getElementById("drawer").hidden = true;
+      drawerSeq++;
+    }
+
+    document.getElementById("drawer-close").addEventListener("click", closeDrawer);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeDrawer();
+    });
+
+    function renderAlerts(alerts) {
+      const list = document.getElementById("alerts");
+      list.textContent = "";
+
+      if (alerts.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "No new alerts";
+        list.appendChild(li);
+        return;
+      }
+
+      alerts.forEach((a) => {
+        const li = document.createElement("li");
+
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.setAttribute("data-verdict", a.verdict);
+        chip.textContent = a.verdict;
+        li.appendChild(chip);
+
+        const name = document.createElement("b");
+        name.textContent = " " + a.client_name + " — ";
+        li.appendChild(name);
+
+        const link = document.createElement("a");
+        link.href = a.url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = a.title;
+        li.appendChild(link);
+
+        const reasonDiv = document.createElement("div");
+        reasonDiv.className = "muted";
+        reasonDiv.textContent = a.reason;
+        li.appendChild(reasonDiv);
+
+        list.appendChild(li);
+      });
+    }
+
+    async function runMonitorTick() {
+      const btn = document.getElementById("monitor-btn");
+      const status = document.getElementById("monitor-status");
+
+      btn.disabled = true;
+      btn.textContent = "Running monitor tick…";
+      status.textContent = "";
+
+      let resp;
+      try {
+        resp = await fetch(`/api/monitor/tick?strictness=${currentStrictness}`, { method: "POST" });
+      } catch (err) {
+        status.textContent = `Monitor tick failed: ${err.message}`;
+        btn.disabled = false;
+        btn.textContent = "Run monitor tick";
+        return;
+      }
+
+      let data = null;
+      try {
+        data = await resp.json();
+      } catch (err) {
+        data = null;
+      }
+
+      if (resp.status === 409) {
+        status.textContent = "Tick already running";
+      } else if (!resp.ok) {
+        status.textContent = `Monitor tick failed: ${resp.status}`;
+      } else {
+        renderAlerts(data.alerts);
+        let summary = `+${data.tick_receipts.jev_calls} Jev calls`;
+        if (data.fetch_failures && data.fetch_failures.length) {
+          summary += ` · GDELT failed for: ${data.fetch_failures.join(", ")}`;
+        }
+        status.textContent = summary;
+        loadResults(currentStrictness);
+      }
+
+      btn.disabled = false;
+      btn.textContent = "Run monitor tick";
+    }
+
+    document.getElementById("monitor-btn").addEventListener("click", runMonitorTick);
+
+    const dial = document.getElementById("dial");
+    const dialValue = document.getElementById("dial-value");
+    const debouncedLoad = debounce((s) => loadResults(s), 200);
+
+    dial.addEventListener("input", () => {
+      currentStrictness = parseFloat(dial.value);
+      dialValue.textContent = currentStrictness.toFixed(2);
+      debouncedLoad(currentStrictness);
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadResults(0.5);
+    });
+  </script>
+</body>
+</html>

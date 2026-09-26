@@ -1,0 +1,27 @@
+id,name,birth_year,city,country,occupation,organization
+C001,Sam Bankman-Fried,1992,,US,crypto exchange founder,FTX
+C002,Elizabeth Holmes,1984,,US,biotech founder,Theranos
+C003,Martin Shkreli,1983,,US,pharmaceutical executive,Turing Pharmaceuticals
+C004,Do Kwon,1991,,South Korea,crypto founder,Terraform Labs
+C005,Charlie Javice,1992,,US,fintech founder,Frank
+C006,Carlos Ghosn,1954,,Lebanon,automotive executive,Nissan
+C007,Michael Jordan,1982,Columbus,US,dentist,Riverside Dental
+C008,Taylor Swift,1975,Tulsa,US,accountant,Prairie Tax Services
+C009,Michael Cohen,1990,Austin,US,high school teacher,Austin ISD
+C010,Tom Brady,1968,Sacramento,US,plumber,Brady Plumbing
+C011,Kevin Hart,1985,Omaha,US,insurance agent,Heartland Mutual
+C012,John Smith,1980,Denver,US,software engineer,Acme Cloud
+C013,Maria Garcia,1977,Phoenix,US,nurse,Valley General Hospital
+C014,James Johnson,1969,Atlanta,US,logistics manager,Peach Freight
+C015,David Lee,1988,Seattle,US,data analyst,Northwind Analytics
+C016,Michael Brown,1983,Cleveland,US,electrician,Lakeshore Electric
+C017,Jennifer Wilson,1991,Raleigh,US,marketing manager,Oakleaf Media
+C018,Robert Miller,1959,Milwaukee,US,retired teacher,
+C019,Wei Zhang,1986,Toronto,Canada,civil engineer,Maple Bridgeworks
+C020,Ahmed Khan,1979,Manchester,UK,pharmacist,Northgate Pharmacy
+C021,Sarah Davis,1994,Boston,US,graphic designer,Harbor Studio
+C022,Daniel Nguyen,1990,San Jose,US,mechanical engineer,Bayline Robotics
+C023,Emily Clark,1987,Portland,US,veterinarian,Cedar Animal Clinic
+C024,Carlos Rodriguez,1975,Miami,US,restaurant owner,Casa Rodriguez
+C025,Linda Martinez,1964,San Antonio,US,school administrator,Alamo Unified
+C026,Anna Kowalski,1993,Chicago,US,paralegal,Lakeview Legal
